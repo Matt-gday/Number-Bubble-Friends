@@ -154,6 +154,10 @@ class NumberBubbleGame {
             numbersToSpawn.pop();
         }
         
+        // Update the total bubbles count to match what we're actually spawning
+        this.totalBubblesThisLevel = numbersToSpawn.length;
+        this.updateDisplay(); // Update the display with the correct count
+        
         // Shuffle the numbers
         this.shuffleArray(numbersToSpawn);
         

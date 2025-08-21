@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Bubble Friends</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Londrina+Solid:wght@400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-area" id="gameArea">
+            <div class="game-over" id="gameOver">
+                <h2>Game Over!</h2>
+                <p>Final Score: <span id="finalScore">0</span></p>
+                <p>Level Reached: <span id="finalLevel">1</span></p>
+                
+                <div class="leaderboard">
+                    <div class="leaderboard-header">
+                        <h3>🏆 High Scores</h3>
+                        <button class="btn-clear" onclick="showClearWarning()">Clear Scores</button>
+                    </div>
+                    <div class="leaderboard-table">
+                        <div class="leaderboard-row header">
+                            <span class="rank">#</span>
+                            <span class="name">Name</span>
+                            <span class="score">Score</span>
+                            <span class="save-column"></span>
+                        </div>
+                        <div id="leaderboardRows">
+                            <!-- 10 rows will be populated here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" onclick="startGame()">Play Again</button>
+            </div>
+            
+            <div class="clear-warning" id="clearWarning">
+                <div class="clear-warning-content">
+                    <h3>⚠️ Clear High Scores</h3>
+                    <p>Are you sure you want to clear all high scores? This action cannot be undone.</p>
+                    <div class="warning-buttons">
+                        <button class="btn btn-secondary" onclick="hideClearWarning()">Cancel</button>
+                        <button class="btn btn-primary" onclick="clearHighScores()">Clear All</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="level-complete" id="levelComplete">
+                <h2>Level Complete!</h2>
+                <p>Great job! Ready for the next challenge?</p>
+                <button class="btn btn-primary" onclick="nextLevel()">Continue</button>
+            </div>
+            
+            <div class="instructions-modal" id="instructionsModal">
+                <div class="instructions-content">
+                    <h2>How to Play Number Bubble Friends</h2>
+                    <div class="instruction-section">
+                        <h3>🎯 Objective</h3>
+                        <p>Match pairs of bubbles that add up to <strong>10</strong> and clear all bubbles before they reach the top!</p>
+                    </div>
+                    <div class="instruction-section">
+                        <h3>🎮 Controls</h3>
+                        <p><strong>First Click:</strong> Highlights a bubble with a magical glow</p>
+                        <p><strong>Second Click:</strong> Click another bubble to try to make a pair</p>
+                        <p><strong>Correct Pair:</strong> Both bubbles pop with beautiful effects!</p>
+                        <p><strong>Wrong Pair:</strong> Selection switches to the new bubble</p>
+                    </div>
+                    <div class="instruction-section">
+                        <h3>✨ Number Pairs</h3>
+                        <p>0+10, 1+9, 2+8, 3+7, 4+6, 5+5</p>
+                    </div>
+                    <div class="instruction-section">
+                        <h3>🏆 Scoring</h3>
+                        <p>Each successful pair gives you <strong>10 × Current Level</strong> points</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="hideInstructions()">Got It!</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info-panel">
+            <h1 class="game-title">Number Bubble Friends</h1>
+            
+            <div class="stat">
+                <div class="stat-label">Score</div>
+                <div class="stat-value" id="score">0</div>
+            </div>
+            
+            <div class="stat">
+                <div class="stat-label">Level</div>
+                <div class="stat-value" id="level">1</div>
+            </div>
+            
+            <div class="stat">
+                <div class="stat-label">Bubbles Popped</div>
+                <div class="stat-value" id="bubblesLeft">0</div>
+            </div>
+            
+            <div class="controls">
+                <button class="btn btn-primary" id="startBtn" onclick="startGame()">Start Game</button>
+                <button class="btn btn-secondary" onclick="showInstructions()">How to Play</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

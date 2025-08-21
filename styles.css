@@ -2,7 +2,7 @@ body {
     margin: 0;
     padding: 20px;
     font-family: 'Inter', sans-serif;
-    background: url('Working Files/Images/sky-bg.png') center/cover no-repeat;
+    background: url('sky-bg.png') center/cover no-repeat;
     min-height: 100vh;
     display: flex;
     justify-content: center;

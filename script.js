@@ -14,6 +14,12 @@ class NumberBubbleGame {
         this.bubblesPopped = 0; // Track how many bubbles have been popped
         this.bubbleSpeed = 0.6;
         this.spawnRate = 2000; // ms between spawns
+        this.usedSpeeds = new Map(); // Track speeds used by each number to prevent duplicates
+        this.activePairs = new Set(); // Track which pairs are currently active on screen
+        
+        // Initialize bubble pop sounds
+        this.bubbleSounds = [];
+        this.initializeSounds();
         
         this.colors = [
             '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57',
@@ -33,6 +39,35 @@ class NumberBubbleGame {
         
         this.highScores = this.loadHighScores();
         this.currentGameScore = 0;
+    }
+    
+    initializeSounds() {
+        // Preload the 3 bubble pop sound files
+        for (let i = 1; i <= 3; i++) {
+            const audio = new Audio(`bubble${i}.wav`);
+            audio.preload = 'auto';
+            audio.volume = 0.6; // Set volume to 60% to avoid being too loud
+            this.bubbleSounds.push(audio);
+        }
+    }
+    
+    playRandomBubbleSound() {
+        try {
+            // Select a random bubble sound
+            const randomIndex = Math.floor(Math.random() * this.bubbleSounds.length);
+            const sound = this.bubbleSounds[randomIndex];
+            
+            // Clone the audio to allow overlapping sounds
+            const soundClone = sound.cloneNode();
+            soundClone.volume = sound.volume;
+            soundClone.play().catch(e => {
+                // Silently handle any audio play errors (e.g., user hasn't interacted with page yet)
+                console.log('Audio play prevented:', e.message);
+            });
+        } catch (error) {
+            // Silently handle any sound errors to avoid breaking the game
+            console.log('Sound error:', error.message);
+        }
     }
     
     startGame() {
@@ -56,6 +91,8 @@ class NumberBubbleGame {
         this.bubbleSpeed = 0.6; // Reset to initial speed
         this.totalBubblesThisLevel = this.bubblesPerLevel;
         this.bubblesPopped = 0;
+        this.usedSpeeds.clear(); // Clear speed tracking for new game
+        this.activePairs.clear(); // Clear active pairs tracking for new game
         
         document.getElementById('gameOver').style.display = 'none';
         document.getElementById('levelComplete').style.display = 'none';
@@ -68,19 +105,46 @@ class NumberBubbleGame {
     }
     
     spawnLevelBubbles() {
-        const pairs = [...this.numberPairs];
         const bubblesNeeded = this.bubblesPerLevel;
         const pairsNeeded = Math.ceil(bubblesNeeded / 2);
         
-        // Shuffle and select pairs for this level
-        for (let i = pairs.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [pairs[i], pairs[j]] = [pairs[j], pairs[i]];
+        // Get unique pair types (remove duplicates from numberPairs array)
+        const uniquePairTypes = this.getUniquePairTypes();
+        
+        // Filter out pairs that are currently active on screen
+        const availablePairTypes = uniquePairTypes.filter(pair => {
+            const pairKey = this.getPairKey(pair[0], pair[1]);
+            return !this.activePairs.has(pairKey);
+        });
+        
+        let selectedPairs = [];
+        
+        if (availablePairTypes.length >= pairsNeeded) {
+            // We have enough unique pairs available
+            this.shuffleArray(availablePairTypes);
+            selectedPairs = availablePairTypes.slice(0, pairsNeeded);
+        } else {
+            // Not enough unique pairs, use all available first
+            selectedPairs = [...availablePairTypes];
+            
+            // Fill remaining slots by cycling through all unique types
+            const allUniquePairs = [...uniquePairTypes];
+            this.shuffleArray(allUniquePairs);
+            
+            while (selectedPairs.length < pairsNeeded) {
+                const nextPair = allUniquePairs[selectedPairs.length % allUniquePairs.length];
+                selectedPairs.push(nextPair);
+            }
         }
         
-        const selectedPairs = pairs.slice(0, pairsNeeded);
-        const numbersToSpawn = [];
+        // Mark selected pairs as active
+        selectedPairs.forEach(pair => {
+            const pairKey = this.getPairKey(pair[0], pair[1]);
+            this.activePairs.add(pairKey);
+        });
         
+        // Create numbers to spawn
+        const numbersToSpawn = [];
         selectedPairs.forEach(pair => {
             numbersToSpawn.push(pair[0], pair[1]);
         });
@@ -91,10 +155,7 @@ class NumberBubbleGame {
         }
         
         // Shuffle the numbers
-        for (let i = numbersToSpawn.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [numbersToSpawn[i], numbersToSpawn[j]] = [numbersToSpawn[j], numbersToSpawn[i]];
-        }
+        this.shuffleArray(numbersToSpawn);
         
         // Spawn bubbles at intervals
         numbersToSpawn.forEach((number, index) => {
@@ -104,6 +165,28 @@ class NumberBubbleGame {
                 }
             }, index * 800);
         });
+    }
+    
+    getPairKey(num1, num2) {
+        // Create a consistent key for a pair regardless of order
+        const sorted = [num1, num2].sort((a, b) => a - b);
+        return `${sorted[0]}-${sorted[1]}`;
+    }
+    
+    getUniquePairTypes() {
+        // Extract unique pair types from the numberPairs array (which has duplicates)
+        const uniquePairs = [];
+        const seenKeys = new Set();
+        
+        for (const pair of this.numberPairs) {
+            const pairKey = this.getPairKey(pair[0], pair[1]);
+            if (!seenKeys.has(pairKey)) {
+                seenKeys.add(pairKey);
+                uniquePairs.push([pair[0], pair[1]]);
+            }
+        }
+        
+        return uniquePairs;
     }
     
     createBubble(number) {
@@ -129,8 +212,8 @@ class NumberBubbleGame {
         
         this.gameArea.appendChild(bubble);
         
-        // Assign a random speed to each bubble (between 0.3 and 1.2)
-        const bubbleSpeed = 0.2 + Math.random() * 0.4;
+        // Get a unique speed for this number to prevent identical numbers from having the same speed
+        const bubbleSpeed = this.getUniqueSpeedForNumber(number);
         
         this.bubbles.push({
             element: bubble,
@@ -175,6 +258,15 @@ class NumberBubbleGame {
     popBubbles(bubble1, bubble2) {
         bubble1.classList.add('popping');
         bubble2.classList.add('popping');
+        
+        // Play random bubble pop sound
+        this.playRandomBubbleSound();
+        
+        // Remove this pair from active pairs so it can be spawned again
+        const num1 = parseInt(bubble1.dataset.number);
+        const num2 = parseInt(bubble2.dataset.number);
+        const pairKey = this.getPairKey(num1, num2);
+        this.activePairs.delete(pairKey);
         
         // Create soap particles at bubble positions
         const rect1 = bubble1.getBoundingClientRect();
@@ -223,6 +315,8 @@ class NumberBubbleGame {
         this.bubblesPerLevel = 6 + (this.level - 1) * 2;
         this.totalBubblesThisLevel = this.bubblesPerLevel;
         this.bubblesPopped = 0;
+        this.usedSpeeds.clear(); // Clear speed tracking for new level
+        this.activePairs.clear(); // Clear active pairs tracking for new level
         
         // Increase speed starting at level 10
         if (this.level >= 10) {
@@ -264,6 +358,9 @@ class NumberBubbleGame {
         clearInterval(this.moveTimer);
         this.currentGameScore = this.score;
         
+        // Clear all active pairs since the game is over
+        this.activePairs.clear();
+        
         // Create array of remaining bubbles and shuffle them
         const remainingBubbles = [...this.bubbles];
         this.shuffleArray(remainingBubbles);
@@ -272,6 +369,9 @@ class NumberBubbleGame {
         remainingBubbles.forEach((bubble, index) => {
             setTimeout(() => {
                 if (bubble.element && bubble.element.parentNode) {
+                    // Play random bubble pop sound for game over bubbles
+                    this.playRandomBubbleSound();
+                    
                     // Create particles for game over bubbles too
                     const rect = bubble.element.getBoundingClientRect();
                     const gameAreaRect = this.gameArea.getBoundingClientRect();
@@ -311,27 +411,22 @@ class NumberBubbleGame {
     
     findNonOverlappingPosition(maxWidth) {
         const bubbleWidth = 70;
-        const minDistance = 80; // Minimum distance between bubble centers
-        const maxAttempts = 50;
+        const minDistance = 85; // Minimum distance between bubble centers (increased for better separation)
+        const maxAttempts = 100; // Increased attempts for better collision avoidance
         
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
             const candidateX = Math.random() * maxWidth;
             let validPosition = true;
             
-            // Check against existing bubbles in the lower portion of screen
+            // Check against ALL existing bubbles to prevent any overlapping
             for (const existingBubble of this.bubbles) {
                 const existingX = existingBubble.x;
-                const existingY = existingBubble.y;
-                const gameAreaHeight = this.gameArea.getBoundingClientRect().height;
+                const horizontalDistance = Math.abs(candidateX - existingX);
                 
-                // Only check against bubbles in the lower 60% of the screen
-                if (existingY > gameAreaHeight * 0.4) {
-                    const horizontalDistance = Math.abs(candidateX - existingX);
-                    
-                    if (horizontalDistance < minDistance) {
-                        validPosition = false;
-                        break;
-                    }
+                // Ensure minimum horizontal separation between any two bubbles
+                if (horizontalDistance < minDistance) {
+                    validPosition = false;
+                    break;
                 }
             }
             
@@ -340,8 +435,77 @@ class NumberBubbleGame {
             }
         }
         
-        // If no valid position found after max attempts, return random position
-        return Math.random() * maxWidth;
+        // If no valid position found after max attempts, try to find the largest gap
+        return this.findLargestGap(maxWidth);
+    }
+    
+    findLargestGap(maxWidth) {
+        if (this.bubbles.length === 0) {
+            return Math.random() * maxWidth;
+        }
+        
+        // Sort existing bubble positions
+        const positions = this.bubbles.map(b => b.x).sort((a, b) => a - b);
+        
+        let largestGap = positions[0]; // Gap from start to first bubble
+        let bestPosition = largestGap / 2;
+        
+        // Check gaps between bubbles
+        for (let i = 0; i < positions.length - 1; i++) {
+            const gap = positions[i + 1] - positions[i];
+            if (gap > largestGap) {
+                largestGap = gap;
+                bestPosition = positions[i] + gap / 2;
+            }
+        }
+        
+        // Check gap from last bubble to end
+        const endGap = maxWidth - positions[positions.length - 1];
+        if (endGap > largestGap) {
+            bestPosition = positions[positions.length - 1] + endGap / 2;
+        }
+        
+        return Math.max(0, Math.min(maxWidth, bestPosition));
+    }
+    
+    getUniqueSpeedForNumber(number) {
+        const baseSpeedMin = 0.2;
+        const baseSpeedMax = 0.6;
+        const speedIncrement = 0.05; // Minimum difference between speeds
+        
+        // Initialize array for this number if it doesn't exist
+        if (!this.usedSpeeds.has(number)) {
+            this.usedSpeeds.set(number, []);
+        }
+        
+        const usedSpeedsForNumber = this.usedSpeeds.get(number);
+        let attempts = 0;
+        const maxAttempts = 50;
+        
+        while (attempts < maxAttempts) {
+            const candidateSpeed = baseSpeedMin + Math.random() * (baseSpeedMax - baseSpeedMin);
+            
+            // Check if this speed is too close to any existing speed for this number
+            let validSpeed = true;
+            for (const usedSpeed of usedSpeedsForNumber) {
+                if (Math.abs(candidateSpeed - usedSpeed) < speedIncrement) {
+                    validSpeed = false;
+                    break;
+                }
+            }
+            
+            if (validSpeed) {
+                usedSpeedsForNumber.push(candidateSpeed);
+                return candidateSpeed;
+            }
+            
+            attempts++;
+        }
+        
+        // If we can't find a unique speed, use a sequential approach
+        const sequentialSpeed = baseSpeedMin + (usedSpeedsForNumber.length * speedIncrement);
+        usedSpeedsForNumber.push(sequentialSpeed);
+        return Math.min(sequentialSpeed, baseSpeedMax);
     }
     
     createSoapParticles(x, y) {
